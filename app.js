@@ -7,6 +7,7 @@ const User = require("./userModel");
 const nodemailer = require("nodemailer");
 const multer = require('multer');
 require('dotenv').config();
+
 // اتصال به پایگاه داده
 mongoose.connect("mongodb://root:wiTFSsLYSoi9Pqz0NsLXypN1@grace.iran.liara.ir:32063/my-app?authSource=admin");
 
@@ -20,10 +21,7 @@ const postSchema = mongoose.Schema({
     type: String,
     required: true,
   },
-  media: {
-    type: String, 
-    required: true,
-  },
+  image: String // اضافه کردن فیلد تصویر
 });
 
 const Post = mongoose.model('Post', postSchema);
@@ -39,6 +37,18 @@ app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
+// تنظیمات آپلود تصاویر با استفاده از Multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'public/uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ storage: storage });
+
 // محتوای صفحات
 const homeContent = "This is Blog Website in which you can compose new Blog Posts by writing '/compose' after the current URL and you will see your composed post on the Home Page itself.";
 const aboutContent = "This Blog Website is created with the help of Node.js and Database MongoDB. Other Technologies used are: Expressjs, EJS and Mongoose.";
@@ -52,7 +62,6 @@ app.get("/", function (req, res) {
     }
   });
 });
-
 
 // روت‌های دیگر
 app.get("/about", function (req, res) {
@@ -84,18 +93,14 @@ app.get("/logout", function (req, res) {
   isLoggedIn = false;
 });
 
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_, __, cb) => cb(null, './uploads'),
-    filename: (_, file, cb) => cb(null, file.originalname),
-  })
-});
+app.use("public/uploads", express.static("uploads"));
+
 
 app.post("/compose", upload.single('media'), function (req, res) {
   const post = {
     title: req.body.postTitle,
     content: req.body.postBody,
-    media: req.body.file
+    image: req.file ? '/uploads/' + req.file.filename : null // اضافه کردن فیلد تصویر
   };
 
   // ذخیره اطلاعات پست در پایگاه داده
@@ -107,7 +112,6 @@ app.post("/compose", upload.single('media'), function (req, res) {
 
   res.redirect("/");
 });
-
 
 app.get("/delete", function (req, res) {
   Post.find({}, function (err, result) {
@@ -139,7 +143,7 @@ app.get("/posts/:postId", function (req, res) {
 
   Post.findOne({ _id: requestedId }, (err, result) => {
     if (!err) {
-      res.render("post", { title: result.title, content: result.content });
+      res.render("post", { title: result.title, content: result.content, imageUrl: result.image });
     } else {
       // Handle error
     }
