@@ -6,6 +6,17 @@ const mongoose = require("mongoose");
 const User = require("./userModel");
 const nodemailer = require("nodemailer");
 const multer = require('multer');
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+
+const s3Client = new S3Client({
+  region: "default",
+  endpoint: "https://storage.iran.liara.space",
+  credentials: {
+    accessKeyId: "5li1dqveho5tvgh6",
+    secretAccessKey: "0d1b1af9-e03d-45c0-8364-e1f81b0104da"
+  },
+});
+
 require('dotenv').config();
 
 // اتصال به پایگاه داده
@@ -47,7 +58,29 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage: storage });
+// const upload = multer({ storage: storage });
+
+const uploadToS3 = async (file) => {
+  const params = {
+    Bucket: "social-bucket",
+    Key: Date.now().toString() + '-' + file.originalname,
+    Body: file.buffer,
+    ContentType: file.mimetype,
+    ACL: 'public-read' // دسترسی عمومی به فایل
+  };
+  try {
+    const data = await s3Client.send(new PutObjectCommand(params));
+    console.log(`File uploaded successfully: ${data.Location}`);
+    return data.Location;
+  } catch (error) {
+    console.error(`Error uploading file: ${error}`);
+    return null;
+  }
+};
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 } // حداکثر اندازه فایل: 5 مگابایت
+});
 
 // محتوای صفحات
 const homeContent = "This is Liara Blog Which is Built For Learning And Doing Some Stuff";
@@ -96,12 +129,19 @@ app.get("/logout", function (req, res) {
 app.use("public/uploads", express.static("uploads"));
 
 
-app.post("/compose", upload.single('media'), function (req, res) {
+app.post("/compose", upload.single('media'), async function (req, res) {
   const post = {
     title: req.body.postTitle,
     content: req.body.postBody,
     image: req.file ? '/uploads/' + req.file.filename : null // اضافه کردن فیلد تصویر
   };
+
+  if (req.file) {
+    const imageUrl = await uploadToS3(req.file);
+    if (imageUrl) {
+      post.image = imageUrl;
+    }
+  }
 
   // ذخیره اطلاعات پست در پایگاه داده
   Post.insertMany(post, (err, result) => {
