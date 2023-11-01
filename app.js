@@ -3,22 +3,14 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const _ = require("lodash");
 const mongoose = require("mongoose");
-require('dotenv').config()
+const User = require("./userModel");
+const nodemailer = require("nodemailer");
+const multer = require('multer');
+require('dotenv').config();
+// اتصال به پایگاه داده
 mongoose.connect("mongodb://root:wiTFSsLYSoi9Pqz0NsLXypN1@grace.iran.liara.ir:32063/my-app?authSource=admin");
-const routes = require("./routes");
-require("./userModel");
-const homeContent = "This is Blog Website in which you can compose new Blog Posts by writing '/compose' after the current URL and you will see your composed post on the Home Page itself.";
-const aboutContent = "This Blog Website is created with the help of Node.js and Database MongoDB. Other Technologies used are: Expressjs, EJS and Mongoose.";
-const contactContent = ""
 
-const app = express();
-
-app.set('view engine', 'ejs');
-
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static("public"));
-app.use("/", routes);
-
+// تعریف schema و model برای پست‌ها
 const postSchema = mongoose.Schema({
   title: {
     type: String,
@@ -27,20 +19,42 @@ const postSchema = mongoose.Schema({
   content: {
     type: String,
     required: true,
-  }
-})
+  },
+  media: {
+    type: String, 
+    required: true,
+  },
+});
 
 const Post = mongoose.model('Post', postSchema);
 
-app.get("/", function (req, res) {
+const app = express();
 
+let isLoggedIn = false;
+
+// تنظیمات مربوط به موتور مشاهده‌گر
+app.set('view engine', 'ejs');
+
+// استفاده از bodyParser و فایل‌های استاتیک
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static("public"));
+
+// محتوای صفحات
+const homeContent = "This is Blog Website in which you can compose new Blog Posts by writing '/compose' after the current URL and you will see your composed post on the Home Page itself.";
+const aboutContent = "This Blog Website is created with the help of Node.js and Database MongoDB. Other Technologies used are: Expressjs, EJS and Mongoose.";
+const contactContent = "";
+
+// روت اصلی
+app.get("/", function (req, res) {
   Post.find({}, function (err, result) {
     if (!err) {
       res.render('home', { startingContent: homeContent, posts: result });
     }
-  })
+  });
 });
 
+
+// روت‌های دیگر
 app.get("/about", function (req, res) {
   res.render("about", { aboutContent: aboutContent });
 });
@@ -50,7 +64,11 @@ app.get("/contact", function (req, res) {
 });
 
 app.get("/compose", function (req, res) {
-  res.render("compose");
+  if (isLoggedIn) {
+    res.render("compose");
+  } else {
+    res.redirect("/login");
+  }
 });
 
 app.get("/login", function (req, res) {
@@ -61,48 +79,59 @@ app.get("/signup", function (req, res) {
   res.render("signup");
 });
 
-app.post("/compose", function (req, res) {
-  const post = {
-    title: req.body.postTitle,
-    content: req.body.postBody
-  };
-
-  async function postInsert() {
-    Post.insertMany(post, (err, result) => {
-      if (!err) {
-        console.log("Successfully Composed New Post");
-      }
-    })
-  }
-  postInsert().then(res.redirect("/"));
+app.get("/logout", function (req, res) {
+  res.redirect('/');
+  isLoggedIn = false;
 });
 
-app.get("/delete", function (req, res) {
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_, __, cb) => cb(null, './uploads'),
+    filename: (_, file, cb) => cb(null, file.originalname),
+  })
+});
 
+app.post("/compose", upload.single('media'), function (req, res) {
+  const post = {
+    title: req.body.postTitle,
+    content: req.body.postBody,
+    media: req.body.file
+  };
+
+  // ذخیره اطلاعات پست در پایگاه داده
+  Post.insertMany(post, (err, result) => {
+    if (!err) {
+      console.log("Successfully Composed New Post");
+    }
+  });
+
+  res.redirect("/");
+});
+
+
+app.get("/delete", function (req, res) {
   Post.find({}, function (err, result) {
     if (!err) {
       res.render('delete', { posts: result });
     }
-  })
-})
+  });
+});
 
 app.post('/delete', (req, res) => {
   const deletePostId = req.body.deleteButton;
 
-  async function postDelete() {
-    Post.deleteMany({ _id: deletePostId }, (err, result) => {
-      if (!err) {
-        console.log("Successfully Deleted Post " + deletePostId);
-        console.log(result);
-      }
-      else {
-        console.log(err);
-      }
-    })
-  }
-  postDelete().then(res.redirect("/delete"));
+  Post.deleteMany({ _id: deletePostId }, (err, result) => {
+    if (!err) {
+      console.log("Successfully Deleted Post " + deletePostId);
+      console.log(result);
+    } else {
+      console.log(err);
+    }
+  });
 
-})
+  res.redirect("/delete");
+});
+
 app.get("/favicon.ico", (req, res) => { });
 
 app.get("/posts/:postId", function (req, res) {
@@ -111,13 +140,79 @@ app.get("/posts/:postId", function (req, res) {
   Post.findOne({ _id: requestedId }, (err, result) => {
     if (!err) {
       res.render("post", { title: result.title, content: result.content });
+    } else {
+      // Handle error
     }
-    else {
-
-    }
-  })
+  });
 });
 
+// تنظیمات ارسال ایمیل
+const MAIL_HOST = "smtp.c1.liara.email";
+const MAIL_PORT = 587;
+const MAIL_USER = "musing_black_uqa9od";
+const MAIL_PASSWORD = "829162f2-0ef5-402e-9be2-19c7b978ef30";
+
+const transporter = nodemailer.createTransport({
+  host: MAIL_HOST,
+  port: MAIL_PORT,
+  tls: true,
+  auth: {
+    user: MAIL_USER,
+    pass: MAIL_PASSWORD,
+  }
+});
+
+app.post("/signup", function (req, res) {
+  const { name, email, username, password, confirmPassword } = req.body;
+
+  const newUser = new User({
+    name,
+    email,
+    username,
+    password
+  });
+
+  transporter.sendMail({
+    from: 'welcome@alinajmabadi.ir',
+    to: email,
+    subject: 'Test Email Subject',
+    html: '<h1>Example HTML Message Body</h1>'
+  })
+  .then(() => console.log('OK, Email has been sent.'))
+  .catch(console.error);
+
+  newUser.save(function(err) {
+    if (err) {
+      console.log(err);
+      res.redirect("/signup");
+    } else {
+      console.log("User saved successfully.");
+      isLoggedIn = true;
+      res.redirect("/compose");
+    }
+  });
+});
+
+app.post("/login", function (req, res) {
+  const { username, password } = req.body;
+
+  // یافتن کاربر با نام کاربری در پایگاه داده
+  User.findOne({ username: username }, function(err, foundUser) {
+    if (err) {
+      console.error(err);
+      res.redirect("/error"); // در صورت خطا می‌توانید به یک صفحه خطا هدایت کنید
+    } else {
+      if (foundUser && foundUser.password === password) {
+        // اگر کاربر پیدا شد و رمز عبور مطابقت داشت
+        isLoggedIn = true;
+        res.redirect("/compose");
+      } else {
+        // اگر کاربر پیدا نشد یا رمز عبور مطابقت نداشت
+        res.redirect("/login");
+      }
+    }
+  });
+});
 
 app.listen(process.env.PORT || 3000, function () {
   console.log("Server started on port 3000");
