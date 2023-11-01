@@ -50,7 +50,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // محتوای صفحات
-const homeContent = "This is Blog Website in which you can compose new Blog Posts by writing '/compose' after the current URL and you will see your composed post on the Home Page itself.";
+const homeContent = "This is Liara Blog Which is Built For Learning And Doing Some Stuff";
 const aboutContent = "This Blog Website is created with the help of Node.js and Database MongoDB. Other Technologies used are: Expressjs, EJS and Mongoose.";
 const contactContent = "";
 

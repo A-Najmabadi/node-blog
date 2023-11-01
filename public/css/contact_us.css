@@ -54,3 +54,20 @@ a:hover {
 .contact-form button:hover {
   background-color: #0056b3;
 }
+
+.post {
+  margin-bottom: 20px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.read-more-button {
+  background-color: #007bff;
+  color: #fff;
+  padding: 5px 10px;
+  text-decoration: none;
+  border-radius: 5px;
+  margin-top: 10px;
+  display: inline-block;
+}
