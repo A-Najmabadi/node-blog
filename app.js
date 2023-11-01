@@ -4,10 +4,9 @@ const ejs = require("ejs");
 const _ = require("lodash");
 const mongoose = require("mongoose");
 require('dotenv').config()
-
-
-mongoose.connect(process.env.MONGODB_URI);
-
+mongoose.connect("mongodb://root:wiTFSsLYSoi9Pqz0NsLXypN1@grace.iran.liara.ir:32063/my-app?authSource=admin");
+const routes = require("./routes");
+require("./userModel");
 const homeContent = "This is Blog Website in which you can compose new Blog Posts by writing '/compose' after the current URL and you will see your composed post on the Home Page itself.";
 const aboutContent = "This Blog Website is created with the help of Node.js and Database MongoDB. Other Technologies used are: Expressjs, EJS and Mongoose.";
 const contactContent = ""
@@ -18,6 +17,7 @@ app.set('view engine', 'ejs');
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
+app.use("/", routes);
 
 const postSchema = mongoose.Schema({
   title: {
@@ -51,6 +51,14 @@ app.get("/contact", function (req, res) {
 
 app.get("/compose", function (req, res) {
   res.render("compose");
+});
+
+app.get("/login", function (req, res) {
+  res.render("login"); 
+});
+
+app.get("/signup", function (req, res) {
+  res.render("signup");
 });
 
 app.post("/compose", function (req, res) {
