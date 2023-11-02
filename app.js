@@ -12,15 +12,15 @@ const s3Client = new S3Client({
   region: "default",
   endpoint: "https://storage.iran.liara.space",
   credentials: {
-    accessKeyId: "5li1dqveho5tvgh6",
-    secretAccessKey: "0d1b1af9-e03d-45c0-8364-e1f81b0104da"
+    accessKeyId: "eimn66fidnb0iob6",
+    secretAccessKey: "37d91701-6539-4acc-91b5-a95b59ecb1df"
   },
 });
 
 require('dotenv').config();
 
 // اتصال به پایگاه داده
-mongoose.connect("mongodb://root:wiTFSsLYSoi9Pqz0NsLXypN1@grace.iran.liara.ir:32063/my-app?authSource=admin");
+mongoose.connect("mongodb://root:FGMLiQolneCodElt4Nw4FgyM@mongodb:27017/my-app?authSource=admin");
 
 // تعریف schema و model برای پست‌ها
 const postSchema = mongoose.Schema({
@@ -62,11 +62,11 @@ const storage = multer.diskStorage({
 
 const uploadToS3 = async (file) => {
   const params = {
-    Bucket: "social-bucket",
+    Bucket: "nodejs-blog-bucket",
     Key: Date.now().toString() + '-' + file.originalname,
     Body: file.buffer,
     ContentType: file.mimetype,
-    ACL: 'public-read' // دسترسی عمومی به فایل
+    ACL: 'public-read' 
   };
   try {
     const data = await s3Client.send(new PutObjectCommand(params));
